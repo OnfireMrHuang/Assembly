@@ -41,7 +41,7 @@ void *consume_cb(void *arg)
 {
     while(1){
         pthread_mutex_lock(&mutex);
-        if(head == NULL){
+        while(head == NULL){
             pthread_cond_wait(&cond,&mutex);
         }
         struct msg *temp = NULL;
