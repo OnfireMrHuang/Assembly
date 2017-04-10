@@ -28,22 +28,24 @@ int  main(int argc,char *argv[])
 {
     int sd,csd;
     struct sockaddr_in  addr,client_addr;
-    char buff[BUFSIZ];
+    char buff[BUFSIZ],clientIp[BUFSIZ];
     socklen_t addr_len,client_addr_len;
     int len ,i;
     sd = socket(AF_INET,SOCK_STREAM,0);
     if(sd == -1){
         perror("create socket fail! ");
     }
+    bzero(&addr,sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(DEFAULT_PORT);
-    // inet_pton(sd,DEFAULT_IP,&addr.sin_addr.s_addr);
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr_len = sizeof(addr);
     bind(sd,(struct sockaddr *)&addr,addr_len);
     listen(sd,256);
     client_addr_len = sizeof(client_addr);
     csd = accept(sd,(struct sockaddr *)&client_addr,&client_addr_len);
+    printf("client ip = %s,client port = %d\n", inet_ntop(AF_INET,(struct sockaddr*)&client_addr.sin_addr.s_addr,
+        clientIp,sizeof(clientIp)),ntohs(client_addr.sin_port));
     for (;;)
     {
         len = read(csd,buff,sizeof(buff));
