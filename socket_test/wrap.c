@@ -178,3 +178,10 @@ size_t Readline(int fd,void *vptr,size_t maxlen)
         *ptr = 0;
         return n;
 }
+int Select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,struct timeval *timeout)
+{
+        int             n;
+        if ( (n = select(nfds, readfds, writefds, exceptfds, timeout)) < 0)
+                perr_exit("select error");
+        return(n);              /* can return 0 on timeout */
+}
