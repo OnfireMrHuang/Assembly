@@ -1,7 +1,7 @@
 src = $(wildcard *.c)
 obj = $(patsubst %.c,%.o,$(src))
 
-all: server client multi_process_serv multi_thread_serv io_multiplex_serv epoll_serv epoll_loop_serv
+all: server client multi_process_serv multi_thread_serv io_multiplex_serv epoll_serv epoll_loop_serv threadpool
 
 server:server.o wrap.o 
 	gcc server.o wrap.o -o server -Wall 
@@ -17,9 +17,11 @@ epoll_serv:epoll_serv.o wrap.o
 	gcc epoll_serv.o wrap.o -o epoll_serv -Wall
 epoll_loop_serv:epoll_loop_serv.o wrap.o
 	gcc epoll_loop_serv.o wrap.o -o epoll_loop_serv -Wall
+threadpool:threadpool.o wrap.o
+	gcc threadpool.o wrap.o -o threadpool -Wall -lpthread
 
 %.o:%.c
 	gcc -c $< -Wall
 .PHONY:clean all
 clean:
-	-rm -rf server client multi_process_serv multi_thread_serv io_multiplex_serv epoll_serv epoll_loop_serv $(obj)	
+	-rm -rf server client multi_process_serv multi_thread_serv io_multiplex_serv epoll_serv epoll_loop_serv threadpool $(obj)	
