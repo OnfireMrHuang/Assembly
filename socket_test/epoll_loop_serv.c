@@ -1,30 +1,26 @@
 /* 
-　　epoll反应堆模型。（libevent库核心实现 epoll）
+    epoll反应堆模型。（libevent库核心实现 epoll）
 
-    libevent库，C语言实现的，开源的网络编程库。 开源、易用性强，跨平台，精简。 select、poll、epoll、dev/poll kqueue.....
+    libevent库，C语言实现的，开源的网络编程库。 开源、易用性强，跨平台，精简。
+     select、poll、epoll、dev/poll kqueue.....
 
-    windows/Linux/Mac os/*BSD 
+    windows/Linux/Mac os BSD 
   
     可读、可写、异常 
 
-    可写：    管道     fd[0] / fd[1] --- 管道缓存区满，不可写， 阻塞。——不可写
-
-        套接字  ---- 不可写。 滑动窗口---流量控制。   epoll_wait(); fd  EPOLLOUT
+    可写：    管道     fd[0] / fd[1] --- 管道缓存区满，不可写， 阻塞。
+    套接字  ---- 不可写。 滑动窗口---流量控制。   epoll_wait(); fd  EPOLLOUT
     
-    epoll普通模型：epoll_create() --- epfd 红黑树 --- 将connfd 添加到 epfd ， epoll_ctl() --  EPOLLIN 事件 ---- epoll_wait 设置监听
+    epoll普通模型：epoll_create() --- epfd 红黑树 --- 将connfd 添加到 epfd ，
+    epoll_ctl() --  EPOLLIN 事件 ---- epoll_wait 设置监听
+    ----- 满足条件 ---- epoll_wait 返回 ---- 数组.data.fd == connfd --- read() --- 小->大 --- write()
 
-            ----- 满足条件 ---- epoll_wait 返回 ---- 数组.data.fd == connfd --- read() --- 小->大 --- write()
-
-
-    epoll反应堆模型： epoll_create() --- epfd 红黑树 --- 将connfd 添加到 epfd ， epoll_ctl() --  EPOLLIN 事件 ---- epoll_wait 设置监听
-
-            —— 满足条件 ---- epoll_wait 返回 ---- 数组.data.fd == connfd --- read() ---- epoll_ctl --- 将connfd从红黑树摘下
-
-             ---- 修改connfd监听事件 EPOLLOUT --- 添加到epfd 树 调用epoll_wait监听 写事件 
-
-            ----- epoll_wait返回说明 connfd 可写 ---- write() ———  将connfd从红黑树摘下 ---- 修改connfd监听事件 EPOLLIN(回调函数)
-
-            —— 添加到epfd 树 调用epoll_wait监听 读事件 
+    epoll反应堆模型： epoll_create() --- epfd 红黑树 --- 将connfd 添加到 epfd ，
+    epoll_ctl() --  EPOLLIN 事件 ---- epoll_wait 设置监听
+    —— 满足条件 ---- epoll_wait 返回 ---- 数组.data.fd == connfd --- read() ---- epoll_ctl --- 将connfd从红黑树摘下
+    ---- 修改connfd监听事件 EPOLLOUT --- 添加到epfd 树 调用epoll_wait监听 写事件 
+    ----- epoll_wait返回说明 connfd 可写 ---- write() ———  将connfd从红黑树摘下 ---- 修改connfd监听事件 EPOLLIN(回调函数)
+    —— 添加到epfd 树 调用epoll_wait监听 读事件 
 */
 /*
  *epoll基于非阻塞I/O事件驱动
@@ -42,7 +38,7 @@
 
 #define MAX_EVENTS  1024                                    //监听上限数
 #define BUFLEN 4096
-#define SERV_PORT   8080
+#define SERV_PORT   8888
 
 void recvdata(int fd, int events, void *arg);
 void senddata(int fd, int events, void *arg);
@@ -61,11 +57,10 @@ struct myevent_s {
 };
 
 int g_efd;                                                  //全局变量, 保存epoll_create返回的文件描述符
-struct myevent_s g_events[MAX_EVENTS+1];                    //自定义结构体类型数组. +1-->listen fd
+struct myevent_s g_events[MAX_EVENTS+1]; //自定义结构体类型数组. +1-->listen fd
 
 
 /*将结构体 myevent_s 成员变量 初始化*/
-
 void eventset(struct myevent_s *ev, int fd, void (*call_back)(int, int, void *), void *arg)
 {
     ev->fd = fd;
@@ -73,11 +68,10 @@ void eventset(struct myevent_s *ev, int fd, void (*call_back)(int, int, void *),
     ev->events = 0;
     ev->arg = arg;
     ev->status = 0;
-　　　　　if(len<=0)
-　　　　　{
-   　　 memset(ev->buf, 0, sizeof(ev->buf));
-    　　ev->len = 0;
-　　　　　}
+    if(ev->len <= 0){
+        bzero(ev->buf,BUFLEN);
+        ev->len = 0;
+    }
     ev->last_active = time(NULL);                       //调用eventset函数的时间
 
     return;
@@ -93,7 +87,7 @@ void eventadd(int efd, int events, struct myevent_s *ev)
     epv.data.ptr = ev;
     epv.events = ev->events = events;       //EPOLLIN 或 EPOLLOUT
 
-    if (ev->status == 0) {                                          //已经在红黑树 g_efd 里
+    if (ev->status == 0) {                         //没有在红黑树 g_efd 里
         op = EPOLL_CTL_ADD;                 //将其加入红黑树 g_efd, 并将status置1
         ev->status = 1;
     }
@@ -221,7 +215,7 @@ void senddata(int fd, int events, void *arg)
 
 /*创建 socket, 初始化lfd */
 
-void initlistensocket(int efd, short port)
+void initlistensocket(int efd/*红黑树根*/, short port)
 {
     struct sockaddr_in sin;
 
@@ -230,11 +224,10 @@ void initlistensocket(int efd, short port)
 
     memset(&sin, 0, sizeof(sin));                                               //bzero(&sin, sizeof(sin))
     sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = INADDR_ANY;
+    sin.sin_addr.s_addr = htonl(INADDR_ANY);
     sin.sin_port = htons(port);
 
     bind(lfd, (struct sockaddr *)&sin, sizeof(sin));
-
     listen(lfd, 20);
 
     /* void eventset(struct myevent_s *ev, int fd, void (*call_back)(int, int, void *), void *arg);  */
@@ -259,13 +252,12 @@ int main(int argc, char *argv[])
 
     initlistensocket(g_efd, port);                      //初始化监听socket
 
-    struct epoll_event events[MAX_EVENTS+1];            //保存已经满足就绪事件的文件描述符数组 
+    struct epoll_event events[MAX_EVENTS+1];           
     printf("server running:port[%d]\n", port);
 
     int checkpos = 0, i;
     while (1) {
         /* 超时验证，每次测试100个链接，不测试listenfd 当客户端60秒内没有和服务器通信，则关闭此客户端链接 */
-
         long now = time(NULL);                          //当前时间
         for (i = 0; i < 100; i++, checkpos++) {         //一次循环检测100个。 使用checkpos控制检测对象
             if (checkpos == MAX_EVENTS)
@@ -302,7 +294,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-
     /* 退出前释放所有资源 */
     return 0;
 }
