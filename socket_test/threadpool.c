@@ -13,7 +13,7 @@
 #define DEFAULT_THREAD_VARY 10
 
 typedef struct  
-{
+{//任务结构体类型
     void *(*function)(void *);
     void *arg;
 }threadpool_task_t;
@@ -210,8 +210,9 @@ int threadpool_destory(threadpool_t *pool)
     if(pool == NULL){
         return -1;
     }
+    //线程会根据该条件自动结束
     pool->shutdown = 1;
-    /*先销毁管理线程*/
+    /*先回收管理线程*/
     pthread_join(pool->adjust_tid,NULL);
 
     for(i=0;i<pool->live_thr_num;i++)
@@ -305,12 +306,14 @@ threadpool_t*  threadpool_create(int min_thr_num,int max_thr_num,int queue_max_s
         return pool;
     }while(0);
 
-    threadpool_free(pool);//循环体里面调用失败后释放pool存储空间
+    if(!pool)
+        threadpool_free(pool);//循环体里面调用失败后释放pool存储空间
     return NULL;
 }
 
 int threadpool_add(threadpool_t *pool,void*(*function)(void*arg),void *arg)
 {
+    /*访问消息队列前给先获取锁*/
     pthread_mutex_lock(&(pool->lock));
 
     /* ==为真,队列已经满，调wait阻塞*/
@@ -338,7 +341,7 @@ int threadpool_add(threadpool_t *pool,void*(*function)(void*arg),void *arg)
     return 0;
 }
 
-#if 1
+// #if 1
 /*测试*/
 void *process(void *arg)
 {
@@ -354,10 +357,10 @@ int main(int argc,char *argv[])
     for(i=0;i<20;i++){
         num[i] = i;
         printf("add task %d\n", i);
-        threadpool_add(thp,process,(void*)&num[i]); /*向线程池中添加任务*/
+        threadpool_add(thp,process,(void*)num[i]); /*向任务队列中添加任务*/
     }
-    sleep(10);
-    threadpool_destory(thp);
+    sleep(10);//休眠10秒，等线程执行完任务
+    threadpool_destory(thp);//销毁线程池
     return 0;
 }
-#endif
+// #endif
